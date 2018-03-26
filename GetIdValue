@@ -1,0 +1,142 @@
+import requests
+import json
+from fake_useragent import UserAgent
+import operator
+from functools import reduce
+import time
+from tqdm import tqdm
+import pandas as pd
+from multiprocessing import Pool, cpu_count, current_process, Process
+from multiprocessing.pool import ThreadPool
+import sys
+import random
+
+# функция заменяет : на _ в тексте объекта чтобы можно было сохранить файл на диск
+def bstr(s):
+    bs=str(' '.join(s.split()))
+    bs=str(bs.replace(":", "_"))
+    return (bs)
+
+# функция позволяет проверить наличие данных в словаре. возвращает "-" если словарь json пустой
+def ExistChek (path, JsonData):
+    try:
+        value = reduce(operator.getitem, path, JsonData)
+    except Exception:
+        value="-"
+    return value
+
+# читаем адрес из файла с прокси и выбираем произвольный
+def get_proxy(): # получаем прокси адрес
+    proxies = open('C:/proxy_s.txt').read().split('\n')
+    proxy = {'http':'http://'+random.choice(proxies)}
+    return proxy
+
+
+# функция получения данных по объекту
+def GetID(part_hrefs):
+    headers = {
+        'Accept':'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8',
+        'Accept-Encoding':'gzip, deflate',
+        'Accept-Language':'ru-RU,ru;q=0.8,en-US;q=0.6,en;q=0.4',
+        'Cache-Control':'max-age=0',
+        'Connection':'keep-alive',
+        'Cookie':'_ym_uid=1476811270768485192; __utma=224553113.862381769.1476811270.1516359613.1516855134.23; __utmz=224553113.1516359613.22.10.utmcsr=yandex|utmccn=(organic)|utmcmd=organic|utmctr=%D1%80%D0%BE%D1%81%D1%80%D0%B5%D0%B5%D1%81%D1%82%D1%80%20%D1%81%D0%BF%D0%B8%D1%81%D0%BE%D0%BA%20%D0%BA%D0%B0%D0%B4%D0%B0%D1%81%D1%82%D1%80%D0%BE%D0%B2%D1%8B%D1%85%20%D0%B8%D0%BD%D0%B6%D0%B5%D0%BD%D0%B5%D1%80%D0%BE%D0%B2; _ga=GA1.2.862381769.1476811270; _ga=GA1.1.862381769.1476811270; _gid=GA1.1.1355624454.1520085746; _gat=1',
+        'DNT':'1',
+        'Host':'pkk5.rosreestr.ru',
+        'Upgrade-Insecure-Requests':'1',
+        'User-Agent':UserAgent().random,
+        'X-Compress':'null'
+    }
+    data = []
+    AllData={}
+    href=str(' '.join(part_hrefs.split()))
+    status_code=0
+    
+    with requests.Session() as session: # создаем сессию
+        while status_code != 200: # делаем запрос пока сервер не вернет правильный файл
+            try:
+                r=session.get("http://pkk5.rosreestr.ru/api/features/1/"+str(href),proxies=get_proxy(), headers=headers, timeout=(60, 60))
+                status_code =r.status_code
+            except Exception:
+                pass
+        ResponseJson =r.json() # json в словарь
+        
+        AllData["adate"]=ExistChek(("feature","attrs", "adate"), ResponseJson)
+        AllData["address"]=ExistChek(("feature","attrs", "address"), ResponseJson)
+        AllData["anno_text"]=ExistChek(("feature","attrs", "anno_text"), ResponseJson)
+        AllData["area_type"]=ExistChek(("feature","attrs", "area_type"), ResponseJson)
+        AllData["area_unit"]=ExistChek(("feature","attrs", "area_unit"), ResponseJson)   
+        AllData["area_value"]=ExistChek(("feature","attrs", "area_value"), ResponseJson)     
+        AllData["cad_cost"]=ExistChek(("feature","attrs", "cad_cost"), ResponseJson)      
+        AllData["actual_date"]=ExistChek(("feature","attrs", "cad_eng_data","actual_date"), ResponseJson)        
+        AllData["co_name"]=ExistChek(("feature","attrs", "cad_eng_data","co_name"), ResponseJson)     
+        AllData["lastmodified"]=ExistChek(("feature","attrs", "cad_eng_data","lastmodified"), ResponseJson)     
+        AllData["rc_type"]=ExistChek(("feature","attrs", "cad_eng_data","rc_type"), ResponseJson) 
+        AllData["cad_record_date"]=ExistChek(("feature","attrs", "cad_record_date"), ResponseJson)  
+        AllData["cad_unit"]=ExistChek(("feature","attrs", "cad_unit"), ResponseJson)      
+        AllData["category_type"]=ExistChek(("feature","attrs", "category_type"), ResponseJson)      
+        AllData["cn"]=ExistChek(("feature","attrs", "cn"), ResponseJson)       
+        AllData["date_cost"]=ExistChek(("feature","attrs", "date_cost"), ResponseJson)     
+        AllData["date_create"]=ExistChek(("feature","attrs", "date_create"), ResponseJson)       
+        AllData["fp"]=ExistChek(("feature","attrs", "fp"), ResponseJson)      
+        AllData["id"]=ExistChek(("feature","attrs", "id"), ResponseJson)  
+        AllData["kvartal"]=ExistChek(("feature","attrs", "kvartal"), ResponseJson)  
+        AllData["kvartal_cn"]=ExistChek(("feature","attrs", "kvartal_cn"), ResponseJson)  
+        AllData["okrug"]=ExistChek(("feature","attrs", "okrug"), ResponseJson)  
+        AllData["okrug_cn"]=ExistChek(("feature","attrs", "okrug_cn"), ResponseJson)  
+        AllData["pubdate"]=ExistChek(("feature","attrs", "pubdate"), ResponseJson)  
+        AllData["rayon"]=ExistChek(("feature","attrs", "rayon"), ResponseJson)
+        AllData["rayon_cn"]=ExistChek(("feature","attrs", "rayon_cn"), ResponseJson)    
+        AllData["reg"]=ExistChek(("feature","attrs", "reg"), ResponseJson)        
+        AllData["rifr"]=ExistChek(("feature","attrs", "rifr"), ResponseJson)         
+        AllData["rights_reg"]=ExistChek(("feature","attrs", "rights_reg"), ResponseJson)        
+        AllData["sale"]=ExistChek(("feature","attrs", "sale"), ResponseJson)     
+        AllData["statecd"]=ExistChek(("feature","attrs", "statecd"), ResponseJson)   
+        AllData["util_by_doc"]=ExistChek(("feature","attrs", "util_by_doc"), ResponseJson)
+        AllData["util_code"]=ExistChek(("feature","attrs", "util_code"), ResponseJson)    
+        AllData["x"]=ExistChek(("feature","center", "x"), ResponseJson)    
+        AllData["y"]=ExistChek(("feature","center", "y"), ResponseJson)  
+        AllData["xmax"]=ExistChek(("feature","extent", "xmax"), ResponseJson)  
+        AllData["xmin"]=ExistChek(("feature","extent", "xmin"), ResponseJson)  
+        AllData["ymax"]=ExistChek(("feature","extent", "ymax"), ResponseJson) 
+        AllData["ymin"]=ExistChek(("feature","extent", "ymin"), ResponseJson) 
+        AllData["stat"]=ExistChek(("feature", "stat"), ResponseJson) 
+        AllData["type"]=ExistChek(("feature", "type"), ResponseJson)
+    time.sleep(random.randint(1,3))
+    return AllData
+
+# функция получает список адресов для скачивания и выводя прогресс бар на каждый список 
+# вызывает функцию получения данны. потом данных охраняются в csv
+def GetData(part_hrefs):
+    df = []
+    df1 = pd.DataFrame( )
+    for item in tqdm(part_hrefs, position=2, desc="h", leave=False):
+        # грузим новое наблюдение
+        responseDic = [GetID(item)]
+        df1=pd.DataFrame.from_dict(responseDic, orient='columns', dtype=None)
+        pd.DataFrame.to_csv(df1,'C:/output_id/'+bstr(item)+'.csv')  
+
+
+# тут мы выбиарем количество процесов
+def main():
+    tc=500 # с данным числом и около 200 публичных прокси 1,5 м объектов скачались за 9 часов.
+
+    # читаем файл со списком id объектов
+    with open('с:/id2.txt', 'r') as file:
+        TotalLinks =file.readlines() # список с id
+
+    # распихиваем id по количеству процессов tc в списки
+    parts = [round(len(TotalLinks)/tc)*i for i in range(tc)]
+    parts.append(len(TotalLinks))
+    names = [TotalLinks[parts[i]:parts[i+1]] for i in range(tc)]
+
+    # создаем процессы и передаем в каждый список с id 
+    pool = ThreadPool(tc)
+    l = pool.map(GetData, names)    
+
+
+
+if __name__=='__main__':
+    print ("start")
+    main()
+    print ("finish")
